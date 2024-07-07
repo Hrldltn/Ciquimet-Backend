@@ -14,6 +14,8 @@ import os
 from pathlib import Path
 import pymysql 
 from decouple import config
+import dj_database_url
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -89,15 +91,19 @@ ASGI_APPLICATION = 'Setup.asgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.1/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': config('DATABASE_ENGINE', default='django.db.backends.mysql'),
-        'NAME': config('DATABASE_NAME'),
-        'USER': config('DATABASE_USER'),
-        'PASSWORD': config('DATABASE_PASSWORD'),
-        'HOST': config('DATABASE_HOST', default='localhost'),
-        'PORT': config('DATABASE_PORT', default='3306'),
-    }
+# DATABASES = {
+#     'default': {
+#         'ENGINE': config('DATABASE_ENGINE', default='django.db.backends.mysql'),
+#         'NAME': config('DATABASE_NAME'),
+#         'USER': config('DATABASE_USER'),
+#         'PASSWORD': config('DATABASE_PASSWORD'),
+#         'HOST': config('DATABASE_HOST', default='localhost'),
+#         'PORT': config('DATABASE_PORT', default='3306'),
+#     }
+# }
+
+DATABASES ={
+    "default": dj_database_url.parse(config('DATABASE_URL'))
 }
 
 LANGUAGE_CODE = 'es'
