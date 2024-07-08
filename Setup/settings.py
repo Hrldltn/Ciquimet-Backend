@@ -169,12 +169,12 @@ STORAGES = {
 
 AUTH_USER_MODEL='api.User'
 
-# HSTS settings
-SECURE_HSTS_SECONDS = 3600  # Considera aumentar este valor
-SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-SECURE_HSTS_PRELOAD = True  # Ajuste recomendado
+# # HSTS settings
+# SECURE_HSTS_SECONDS = 3600  # Considera aumentar este valor
+# SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+# SECURE_HSTS_PRELOAD = True  # Ajuste recomendado
 
-# Otras configuraciones de seguridad
-SECURE_SSL_REDIRECT = True
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
+# # Otras configuraciones de seguridad
+# SECURE_SSL_REDIRECT = True
+# SESSION_COOKIE_SECURE = True
+# CSRF_COOKIE_SECURE = True
