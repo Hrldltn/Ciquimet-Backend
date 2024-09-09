@@ -6,11 +6,11 @@ from django.contrib.auth.forms import  AuthenticationForm
 from django.contrib.auth import authenticate, login
 from django.forms import ValidationError
 from django.http import JsonResponse
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from api.models import AnalisisCuS4FeS4MoS4, Muestra, User , AnalisisCuTFeZn
-from .forms import AnalisisCuS4FeS4MoS4Form, AnalisisCuTFeZnForm, CustomUserCreationForm, MuestraForm
+from api.models import AnalisisCuS4FeS4MoS4, AnalisisMulti, Muestra, User , AnalisisCuTFeZn
+from .forms import AnalisisCuS4FeS4MoS4Form, AnalisisCuTFeZnForm, AnalisisMultiForm, CustomUserCreationForm, MuestraForm
 from django.views.decorators.csrf import csrf_exempt
 from .decorators import is_administrador, is_supervisor, is_quimico
 
@@ -75,25 +75,28 @@ def generar_token(user_id):
     token = signing.dumps(token_data, key=settings.SECRET_KEY)
     return token
 
-
 @api_view(['POST'])
 def register_user(request):
     if request.method == 'POST':
-        form = CustomUserCreationForm(request.POST)
+        data = request.POST
+        form = CustomUserCreationForm(data)
+     
         if form.is_valid():
-            try: 
-                user = form.save()
-                first_name = user.first_name
-                date_joined = user.date_joined.date()  
-                current_date = datetime.now().date()
-                if (current_date - date_joined).days < 30:
-                    is_new_user=user.is_new_user = True
-                    user.save()
+            try:
+                # Verificar si se está enviando un ID para actualizar el registro existente
+                if 'id' in data and data['id']:
+                    # Obtener el registro existente para actualizarlo
+                    usuario = User.objects.get(pk=data['id'])
+                    form = CustomUserCreationForm(data, instance=usuario)
+                    form.save()
+                    message = f"Usuario actualizado correctamente"
                 else:
-                    is_new_user=user.is_new_user = False
+                    # Crear un nuevo registro
+                    user = form.save()
+                
                     user.save()
-                message = f"Usuario creado correctamente: {first_name}"
-                return JsonResponse({'message': message, 'tipo': 'success', 'is_new_user': is_new_user})
+                    message = f"Usuario creado correctamente"
+                return JsonResponse({'message': message, 'tipo': 'success'})
             except ValidationError  as e:
                 message = f"Error al crear usuario: {str(e)}"
                 return JsonResponse({'message': message, 'tipo': 'error'})
@@ -105,7 +108,26 @@ def register_user(request):
             return JsonResponse({'tipo': 'error', 'message': 'Error al crear usuario', 'errors': errors})
     else:
         return JsonResponse({'tipo': 'error', 'message': 'Método no permitido. Utiliza el método POST.'})
+
+      
+
+       
     
+@api_view(['DELETE'])
+def users_delete(request, id):
+    try:
+        user = get_object_or_404(User, id=id)
+        user.delete()
+        return JsonResponse({'message': 'Usuario eliminado con éxito'}, status=200)
+    except Exception as e:
+        logger.error("Error deleting user: %s", e)
+        return JsonResponse({'message': 'Error al eliminar usuario'}, status=500)
+        
+    
+    
+    
+    
+    # LABORATORIO
 def laboratorio(request):
     return render(request, 'hola')
 
@@ -225,6 +247,34 @@ def register_CuS4FeS4MoS4(request):
 
             except AnalisisCuTFeZn.DoesNotExist:
                 return JsonResponse({'message': 'El registro no existe.', 'tipo': 'error'})
+@api_view(['POST'])
+def register_Multi(request):
+    if request.method == 'POST':
+        data = request.POST
+        form = AnalisisMultiForm(data)
+     
+        if form.is_valid():
+            try:
+                # Verificar si se está enviando un ID para actualizar el registro existente
+                if 'id' in data and data['id']:
+                    # Obtener el registro existente para actualizarlo
+                    analisis = AnalisisMulti.objects.get(pk=data['id'])
+                    form = AnalisisMultiForm(data, instance=analisis)
+                    form.save()
+                    message = f"Validador actualizado correctamente: Multi"
+                else:
+                    # Crear un nuevo registro
+                    analisis = form.save()
+                    message = f"Validador creado correctamente: Multi"
+
+                return JsonResponse({'message': message, 'tipo': 'success'})
+
+            except ValidationError as e:
+                message = f"Error al procesar la muestra: {str(e)}"
+                return JsonResponse({'message': message, 'tipo': 'error'})
+
+            except AnalisisCuTFeZn.DoesNotExist:
+                return JsonResponse({'message': 'El registro no existe.', 'tipo': 'error'})
 
         else:
             errors = []
@@ -272,6 +322,35 @@ def CuS4FeS4MoS4(request):
                 }
                 CuS4FeS4MoS4_list.append(CuS4FeS4MoS4_dict)
             return JsonResponse({'validacion': CuS4FeS4MoS4_list})
+        except Exception as e:
+            logger.error("Error fetching validation list: %s", e)
+            return JsonResponse({'message': 'Error al obtener la validación'}, status=500)
+
+@api_view(['GET'])
+def Multi(request):
+        Multi = AnalisisMulti.objects.all()
+        Multi_list = []
+        try:
+            for multi in Multi:
+                Multi_dict = {
+                    'id': multi.id,
+                    'l_ppm_ag': multi.l_ppm_ag,
+                    'l_ppm_ag_bk': multi.l_ppm_ag_bk,
+                    'ag': multi.ag,
+                    'l_ppm_as': multi.l_ppm_as,
+                    'l_ppm_as_bk': multi.l_ppm_as_bk,
+                    'analisis_as': multi.analisis_as,
+                    'l_ppm_mo': multi.l_ppm_mo,
+                    'mo': multi.mo,
+                    'l_ppm_pb': multi.l_ppm_pb,
+                    'l_ppm_pb_bk': multi.l_ppm_pb_bk,
+                    'pb': multi.pb,
+                    'l_ppm_cu': multi.l_ppm_cu,
+                    'l_ppm_cu_bk': multi.l_ppm_cu_bk,
+                    'cu': multi.cu,
+                }
+                Multi_list.append(Multi_dict)
+            return JsonResponse({'validacion': Multi_list})
         except Exception as e:
             logger.error("Error fetching validation list: %s", e)
             return JsonResponse({'message': 'Error al obtener la validación'}, status=500)

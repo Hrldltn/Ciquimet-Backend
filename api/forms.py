@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from django.contrib.auth.password_validation import CommonPasswordValidator, validate_password
-from .models import AnalisisCuTFeZn, Muestra, User,AnalisisCuS4FeS4MoS4
+from .models import AnalisisCuTFeZn, AnalisisMulti, Muestra, User,AnalisisCuS4FeS4MoS4
 
 class CustomUserCreationForm(UserCreationForm):
    
@@ -56,6 +56,11 @@ class AnalisisCuTFeZnForm(forms.ModelForm):
 class AnalisisCuS4FeS4MoS4Form(forms.ModelForm):
     class Meta:
         model = AnalisisCuS4FeS4MoS4
+        fields = ('__all__')
+        
+class AnalisisMultiForm(forms.ModelForm):
+    class Meta:
+        model = AnalisisMulti
         fields = ('__all__')
 
         
