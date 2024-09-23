@@ -9,8 +9,8 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, render
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from api.models import AnalisisCuS4FeS4MoS4, AnalisisMulti, Muestra, User , AnalisisCuTFeZn
-from .forms import AnalisisCuS4FeS4MoS4Form, AnalisisCuTFeZnForm, AnalisisMultiForm, CustomUserCreationForm, MuestraForm
+from api.models import AnalisisCuS4FeS4MoS4, AnalisisMulti, Cliente, Muestra, Proyecto, User , AnalisisCuTFeZn
+from .forms import AnalisisCuS4FeS4MoS4Form, AnalisisCuTFeZnForm, AnalisisMultiForm, ClienteForm, CustomUserCreationForm, MuestraForm, ProyectoForm
 from django.views.decorators.csrf import csrf_exempt
 from .decorators import is_administrador, is_supervisor, is_quimico
 
@@ -40,6 +40,126 @@ def users_list(request):
     except Exception as e:
         logger.error("Error fetching user list: %s", e)
         return JsonResponse({'message': 'Error al obtener usuarios'}, status=500)
+    
+@api_view(['GET'])
+def clientes_list(request):
+    try:
+        clientes = Cliente.objects.all()
+        cliente_list = []
+        for cliente in clientes:
+            user_dict = {
+                'id': cliente.id,
+                'nombre': cliente.nombre,
+                'rut': cliente.rut,
+                'direccion': cliente.direccion,
+                'telefono': cliente.telefono,
+                'email': cliente.email,
+            }
+            cliente_list.append(user_dict)
+        return JsonResponse({'clientes': cliente_list})
+    except Exception as e:
+        logger.error("Error fetching user list: %s", e)
+        return JsonResponse({'message': 'Error al obtener usuarios'}, status=500)
+
+
+@api_view(['POST'])
+def register_cliente(request):
+    if request.method == 'POST':
+        data = request.POST
+        form = ClienteForm(data)
+     
+        if form.is_valid():
+            try:
+                # Verificar si se está enviando un ID para actualizar el registro existente
+                if 'id' in data and data['id']:
+                    # Obtener el registro existente para actualizarlo
+                    usuario = Cliente.objects.get(pk=data['id'])
+                    form = ClienteForm(data, instance=usuario)
+                    form.save()
+                    message = f"Cliente actualizado correctamente"
+                else:
+                    # Crear un nuevo registro
+                    cliente = form.save()
+                    cliente.save()
+                    message = f"Cliente creado correctamente"
+                return JsonResponse({'message': message, 'tipo': 'success'})
+            except ValidationError  as e:
+                errors = []
+                for field, field_errors in form.errors.items():
+                    for error in field_errors:
+                        errors.append(f": {error}")
+                return JsonResponse({'tipo': 'error', 'message': 'Error al crear usuario', 'errors': e})
+        else:
+            errors = []
+            for field, field_errors in form.errors.items():
+                for error in field_errors:
+                    errors.append(f": {error}")
+            return JsonResponse({'tipo': 'error', 'message': 'Error al crear usuario', 'errors': errors})
+    else:
+        return JsonResponse({'tipo': 'error', 'message': 'Método no permitido. Utiliza el método POST.'})
+    
+@api_view(['GET'])
+def proyectos_list(request):
+    try:
+        proyectos = Proyecto.objects.all()
+        proyecto_list = []
+        for proyecto in proyectos:
+            proyecto_dict = {
+                'id': proyecto.id,
+                'nombre': proyecto.nombre,
+                'cliente': {
+                    'id': proyecto.cliente.id,  # Aquí puedes ajustar los campos que necesitas del cliente
+                    'nombre': proyecto.cliente.nombre  # Asegúrate de que el modelo Cliente tiene este campo
+                },
+                'fecha_emision': proyecto.fecha_emision,
+            }
+            proyecto_list.append(proyecto_dict)
+        return JsonResponse({'proyectos': proyecto_list})
+    except Exception as e:
+        logger.error("Error fetching user list: %s", e)
+        return JsonResponse({'message': 'Error al obtener proyectos'}, status=500)
+
+
+@api_view(['POST'])
+def register_proyectos(request):
+    if request.method == 'POST':
+        data = request.POST
+        form = ProyectoForm(data)
+     
+        if form.is_valid():
+            try:
+                # Verificar si se está enviando un ID para actualizar el registro existente
+                if 'id' in data and data['id']:
+                    # Obtener el registro existente para actualizarlo
+                    proyecto = Proyecto.objects.get(pk=data['id'])
+                    form = ProyectoForm(data, instance=proyecto)
+                    form.save()
+                    message = f"Proyecto actualizado correctamente"
+                else:
+                    # Crear un nuevo registro
+                    proyecto = form.save()
+                    proyecto.save()
+                    message = f"Proyecto creado correctamente"
+                return JsonResponse({'message': message, 'tipo': 'success'})
+            except ValidationError  as e:
+                errors = []
+                for field, field_errors in form.errors.items():
+                    for error in field_errors:
+                        errors.append(f": {error}")
+                return JsonResponse({'tipo': 'error', 'message': 'Error al crear proyecto', 'errors': e})
+        else:
+            errors = []
+            for field, field_errors in form.errors.items():
+                for error in field_errors:
+                    errors.append(f": {error}")
+            return JsonResponse({'tipo': 'error', 'message': 'Error al crear proyecto', 'errors': errors})
+    else:
+        return JsonResponse({'tipo': 'error', 'message': 'Método no permitido. Utiliza el método POST.'})
+
+
+
+
+
 
 @api_view(['POST'])
 def login_user(request):
@@ -93,13 +213,15 @@ def register_user(request):
                 else:
                     # Crear un nuevo registro
                     user = form.save()
-                
                     user.save()
                     message = f"Usuario creado correctamente"
                 return JsonResponse({'message': message, 'tipo': 'success'})
             except ValidationError  as e:
-                message = f"Error al crear usuario: {str(e)}"
-                return JsonResponse({'message': message, 'tipo': 'error'})
+                errors = []
+                for field, field_errors in form.errors.items():
+                    for error in field_errors:
+                        errors.append(f": {error}")
+                return JsonResponse({'tipo': 'error', 'message': 'Error al crear usuario', 'errors': errors})
         else:
             errors = []
             for field, field_errors in form.errors.items():
@@ -139,6 +261,7 @@ def muestras(request):
             for muestra in muestras:
                 muestra_dict = {
                     'id': muestra.id,
+                    'proyecto': muestra.proyecto.nombre,
                     'nombre': muestra.nombre,
                     'fecha_emision': muestra.fecha_emision,
                     'elemento': muestra.elemento,
@@ -161,7 +284,9 @@ def muestras(request):
 @api_view(['POST'])
 def register_muestra(request):
     if request.method == 'POST':
-        form = MuestraForm(request.POST)
+        data = request.POST
+        form = MuestraForm(data)
+      
         if form.is_valid():
             try: 
                 muestra = form.save()
@@ -176,7 +301,7 @@ def register_muestra(request):
             errors = []
             for field, field_errors in form.errors.items():
                 for error in field_errors:
-                    errors.append(f": {error}")
+                    errors.append(f"{field}: {error}")
             return JsonResponse({'tipo': 'error', 'message': 'Error al crear la muestra', 'errors': errors})
     else:
         return JsonResponse({'tipo': 'error', 'message': 'Método no permitido. Utiliza el método POST.'})
@@ -247,6 +372,7 @@ def register_CuS4FeS4MoS4(request):
 
             except AnalisisCuTFeZn.DoesNotExist:
                 return JsonResponse({'message': 'El registro no existe.', 'tipo': 'error'})
+            
 @api_view(['POST'])
 def register_Multi(request):
     if request.method == 'POST':
@@ -341,6 +467,7 @@ def Multi(request):
                     'l_ppm_as_bk': multi.l_ppm_as_bk,
                     'analisis_as': multi.analisis_as,
                     'l_ppm_mo': multi.l_ppm_mo,
+                    'l_ppm_mo_bk': multi.l_ppm_mo_bk,
                     'mo': multi.mo,
                     'l_ppm_pb': multi.l_ppm_pb,
                     'l_ppm_pb_bk': multi.l_ppm_pb_bk,

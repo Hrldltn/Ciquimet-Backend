@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from django.contrib.auth.password_validation import CommonPasswordValidator, validate_password
-from .models import AnalisisCuTFeZn, AnalisisMulti, Muestra, User,AnalisisCuS4FeS4MoS4
+from .models import AnalisisCuTFeZn, AnalisisMulti, Cliente, Muestra, Proyecto, User,AnalisisCuS4FeS4MoS4
 
 class CustomUserCreationForm(UserCreationForm):
    
@@ -42,11 +42,22 @@ class CustomUserChangeForm(UserChangeForm):
         model = User 
         fields = ('first_name', 'last_name', 'rut', 'username', 'is_administrador', 'is_supervisor', 'is_quimico')
         
+
+class ClienteForm(forms.ModelForm):
+    class Meta:
+        model = Cliente
+        fields = ('__all__')
+
+class ProyectoForm(forms.ModelForm):
+    class Meta:
+        model = Proyecto
+        fields = ('__all__')
         
 class MuestraForm(forms.ModelForm):
     class Meta:
         model = Muestra
-        fields = ('__all__')
+        fields = ['nombre', 'proyecto', 'fecha_emision', 'elemento', 'nbo', 'ident', 't', 'peso_m', 'v_ml', 'l_ppm', 'l_ppm_bk', 'porcentaje']
+
         
 class AnalisisCuTFeZnForm(forms.ModelForm):
     class Meta:
