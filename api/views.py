@@ -175,10 +175,11 @@ def login_user(request):
             user.save()
             first_name = user.first_name
             last_name = user.last_name
+            email = user.username
             token = user.token
             message=last_name
              
-            return JsonResponse({'tipo':'success','message':message, 'first_name': first_name,'token':token})
+            return JsonResponse({'tipo':'success','message':message, 'first_name': first_name,'last_name':last_name,'email':email, 'token':token})
         else:
             message='El usuario o la contraseña ingresada son incorrectas'
             return JsonResponse({'tipo':'error','message':message }, status=400)
