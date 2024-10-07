@@ -1,13 +1,13 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from django.contrib.auth.password_validation import CommonPasswordValidator, validate_password
-from .models import AnalisisCuTFeZn, AnalisisMulti, Cliente, Muestra, Proyecto, User,AnalisisCuS4FeS4MoS4
+from .models import AnalisisCuTFeZn, AnalisisMulti, Cliente, MetodoAnalisis, Muestra, Proyecto, User,AnalisisCuS4FeS4MoS4,ODT,ElementoMetodo
 
 class CustomUserCreationForm(UserCreationForm):
    
     class Meta:
         model = User 
-        fields = ('first_name', 'last_name', 'rut', 'username', 'is_administrador', 'is_supervisor', 'is_quimico')
+        fields = ('first_name', 'last_name', 'rut', 'username', 'rolname','turno')
      
     def clean_username(self):
         username = self.cleaned_data.get('username')
@@ -40,7 +40,7 @@ class CustomUserCreationForm(UserCreationForm):
 class CustomUserChangeForm(UserChangeForm):
     class Meta:
         model = User 
-        fields = ('first_name', 'last_name', 'rut', 'username', 'is_administrador', 'is_supervisor', 'is_quimico')
+        fields = ('first_name', 'last_name', 'rut', 'username', 'rolname','turno')
         
 
 class ClienteForm(forms.ModelForm):
@@ -73,7 +73,20 @@ class AnalisisMultiForm(forms.ModelForm):
     class Meta:
         model = AnalisisMulti
         fields = ('__all__')
-
         
-    
+class ODTForm(forms.ModelForm):
+    class Meta:
+        model = ODT
+        fields='__all__'
+        exclude = ['id']  # Excluir Nro_OT del formulario, ya que se genera automáticamente
 
+   
+class ElementoMetodoForm(forms.ModelForm):
+    class Meta:
+        model = ElementoMetodo
+        fields = ('__all__')
+        
+class MetodoAnalisisForm(forms.ModelForm):
+    class Meta:
+        model = MetodoAnalisis
+        fields = ('__all__')

@@ -9,10 +9,12 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, render
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from api.models import AnalisisCuS4FeS4MoS4, AnalisisMulti, Cliente, Muestra, Proyecto, User , AnalisisCuTFeZn
-from .forms import AnalisisCuS4FeS4MoS4Form, AnalisisCuTFeZnForm, AnalisisMultiForm, ClienteForm, CustomUserCreationForm, MuestraForm, ProyectoForm
+from api.models import AnalisisCuS4FeS4MoS4, AnalisisMulti, Cliente, ElementoMetodo, MetodoAnalisis, Muestra, MuestraMasificada, Proyecto, User , AnalisisCuTFeZn,ODT
+from .forms import AnalisisCuS4FeS4MoS4Form, AnalisisCuTFeZnForm, AnalisisMultiForm, ClienteForm, CustomUserCreationForm, ElementoMetodoForm, MetodoAnalisisForm, MuestraForm, ODTForm, ProyectoForm
 from django.views.decorators.csrf import csrf_exempt
 from .decorators import is_administrador, is_supervisor, is_quimico
+
+from django.db import transaction
 
 @api_view(['GET'])
 def users_list(request):
@@ -26,13 +28,10 @@ def users_list(request):
                 'first_name': user.first_name,
                 'last_name': user.last_name,
                 'email': user.email,
+                'rolname': user.rolname,
+                'turno': user.turno,
+                'token': user.token,
                 'is_active': user.is_active,
-                'is_staff': user.is_staff,
-                'is_superuser': user.is_superuser,
-                'is_administrador': user.is_administrador,
-                'is_supervisor': user.is_supervisor,
-                'is_quimico': user.is_quimico,
-                'is_new_user': user.is_new_user,
                 'date_joined': user.date_joined,
             }
             users_list.append(user_dict)
@@ -88,13 +87,13 @@ def register_cliente(request):
                 for field, field_errors in form.errors.items():
                     for error in field_errors:
                         errors.append(f": {error}")
-                return JsonResponse({'tipo': 'error', 'message': 'Error al crear usuario', 'errors': e})
+                return JsonResponse({'tipo': 'error', 'message': 'Error al crear cliente', 'errors': e})
         else:
             errors = []
             for field, field_errors in form.errors.items():
                 for error in field_errors:
                     errors.append(f": {error}")
-            return JsonResponse({'tipo': 'error', 'message': 'Error al crear usuario', 'errors': errors})
+            return JsonResponse({'tipo': 'error', 'message': 'Error al crear cliente', 'errors': errors})
     else:
         return JsonResponse({'tipo': 'error', 'message': 'Método no permitido. Utiliza el método POST.'})
     
@@ -108,8 +107,8 @@ def proyectos_list(request):
                 'id': proyecto.id,
                 'nombre': proyecto.nombre,
                 'cliente': {
-                    'id': proyecto.cliente.id,  # Aquí puedes ajustar los campos que necesitas del cliente
-                    'nombre': proyecto.cliente.nombre  # Asegúrate de que el modelo Cliente tiene este campo
+                    'id': proyecto.cliente.id,  
+                    'nombre': proyecto.cliente.nombre  
                 },
                 'fecha_emision': proyecto.fecha_emision,
             }
@@ -155,10 +154,6 @@ def register_proyectos(request):
             return JsonResponse({'tipo': 'error', 'message': 'Error al crear proyecto', 'errors': errors})
     else:
         return JsonResponse({'tipo': 'error', 'message': 'Método no permitido. Utiliza el método POST.'})
-
-
-
-
 
 
 @api_view(['POST'])
@@ -216,26 +211,24 @@ def register_user(request):
                     user = form.save()
                     user.save()
                     message = f"Usuario creado correctamente"
+                
                 return JsonResponse({'message': message, 'tipo': 'success'})
-            except ValidationError  as e:
-                errors = []
-                for field, field_errors in form.errors.items():
-                    for error in field_errors:
-                        errors.append(f": {error}")
-                return JsonResponse({'tipo': 'error', 'message': 'Error al crear usuario', 'errors': errors})
+            
+            except ValidationError as e:
+                return JsonResponse({'tipo': 'error', 'message': f'Error de validación: {str(e)}'})
+
         else:
-            errors = []
+            # Generar errores más específicos
+            errors = {}
             for field, field_errors in form.errors.items():
-                for error in field_errors:
-                    errors.append(f": {error}")
-            return JsonResponse({'tipo': 'error', 'message': 'Error al crear usuario', 'errors': errors})
+                errors[field] = list(field_errors)  
+                message = f"Error al crear usuario: {errors}"
+
+                return JsonResponse({'tipo': 'error', 'message': message, 'errors': errors})
     else:
         return JsonResponse({'tipo': 'error', 'message': 'Método no permitido. Utiliza el método POST.'})
 
-      
-
-       
-    
+  
 @api_view(['DELETE'])
 def users_delete(request, id):
     try:
@@ -246,9 +239,6 @@ def users_delete(request, id):
         logger.error("Error deleting user: %s", e)
         return JsonResponse({'message': 'Error al eliminar usuario'}, status=500)
         
-    
-    
-    
     
     # LABORATORIO
 def laboratorio(request):
@@ -412,6 +402,84 @@ def register_Multi(request):
 
     return JsonResponse({'tipo': 'error', 'message': 'Método no permitido. Utiliza el método POST.'})
 
+
+
+@api_view(['POST'])
+def register_ODT(request):
+    if request.method == 'POST':
+        data = request.data  
+
+        print("Datos recibidos en el backend:", data)  # Para verificar si los datos están llegando correctamente.
+
+        form = ODTForm(data)
+        
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    # Crear un nuevo registro dentro de una transacción atómica
+                    odt = form.save()
+                    message = "Orden de trabajo creada correctamente"
+                    return JsonResponse({'message': message, 'tipo': 'success'}, status=201)
+
+            except ValidationError as e:
+                message = f"Error al procesar el registro: {str(e)}"
+                print("Validation Error:", e)  # Mostrar detalles del error de validación
+                return JsonResponse({'message': message, 'tipo': 'error'}, status=400)
+
+        else:
+            # Loguear errores del formulario y devolverlos al frontend
+            print("Errores de validación del formulario:", form.errors)
+            return JsonResponse({'tipo': 'error', 'message': 'Error en la validación del formulario', 'errors': form.errors}, status=400)
+
+    return JsonResponse({'tipo': 'error', 'message': 'Método no permitido. Utiliza el método POST.'}, status=405)
+
+@api_view(['POST'])
+def register_ElementoMetodo(request):
+    if request.method == 'POST':
+        data = request.data  
+        
+        form = ElementoMetodoForm(data)
+        
+        if form.is_valid():
+            try:
+                # Crear un nuevo registro
+                element = form.save()
+                message = "Elemento creado correctamente"
+                return JsonResponse({'message': message, 'tipo': 'success'}, status=201)
+
+            except ValidationError as e:
+                message = f"Error al procesar el registro: {str(e)}"
+                return JsonResponse({'message': message, 'tipo': 'error'}, status=400)
+
+        else:
+            # Loguear errores del formulario y devolverlos al frontend
+            return JsonResponse({'tipo': 'error', 'message': 'Error en la validación del formulario', 'errors': form.errors}, status=400)
+
+
+@api_view(['POST'])
+def register_metodo(request):
+    if request.method == 'POST':
+        data = request.data  
+        
+        form = MetodoAnalisisForm(data)
+        
+        if form.is_valid():
+            try:
+                # Crear un nuevo registro
+                element = form.save()
+                message = "Metodo creado correctamente"
+                return JsonResponse({'message': message, 'tipo': 'success'}, status=201)
+
+            except ValidationError as e:
+                message = f"Error al procesar el registro: {str(e)}"
+                return JsonResponse({'message': message, 'tipo': 'error'}, status=400)
+
+        else:
+            # Loguear errores del formulario y devolverlos al frontend
+            return JsonResponse({'tipo': 'error', 'message': 'Error en el metodo del formulario', 'errors': form.errors}, status=400)
+
+
+
 @api_view(['GET'])
 def CutFeZn(request):
         cutfezn = AnalisisCuTFeZn.objects.all()
@@ -482,5 +550,103 @@ def Multi(request):
         except Exception as e:
             logger.error("Error fetching validation list: %s", e)
             return JsonResponse({'message': 'Error al obtener la validación'}, status=500)
-        
-        
+
+@api_view(['GET'])
+def get_ODT(request):
+    try:
+        odt = ODT.objects.select_related('Cliente', 'Proyecto').all()
+        odt_list = []
+        for item in odt:
+            odt_dict = {
+                'id': item.id,
+                'fecha_emision': item.Fec_Recep,
+                'fecha_entrega': item.Fec_Finalizacion,
+                'Prefijo': item.Prefijo,
+                'cliente': item.Cliente.nombre if item.Cliente else "Cliente no asignado",
+                'proyecto': item.Proyecto.nombre if item.Proyecto else "Proyecto no asignado",
+                'Responsable': item.Responsable,
+                'Prioridad': item.Prioridad,
+                'TipoMuestra': item.TipoMuestra,
+                'Referencia': item.Referencia,
+                'Cant_Muestra': item.Cant_Muestra,
+            }
+            odt_list.append(odt_dict)
+        return JsonResponse({'odt': odt_list})
+    except Exception as e:
+        logger.error("Error fetching validation list: %s", e)
+        return JsonResponse({'message': 'Error al obtener la orden de trabajo'}, status=500)
+
+@api_view(['GET'])
+def get_ODTDetails(request, id):
+    try:
+        muestraM = MuestraMasificada.objects.select_related('odt').filter(odt=id)
+        muestraM_list = []
+
+        for item in muestraM:
+            muestraM_dict = {
+                'odt': item.odt.id,
+                'cliente': item.odt.Cliente.nombre,
+                'Prefijo': item.Prefijo,
+                'fecha_creacion': item.fecha_creacion,
+                'tipoMuestra': item.tipoMuestra,
+            }
+            muestraM_list.append(muestraM_dict)
+
+        return JsonResponse({'muestraM': muestraM_list}, safe=False)
+    except Exception as e:
+        logger.error("Error fetching muestra masificada: %s", e)
+        return JsonResponse({'message': 'Error al obtener la muestra masificada'}, status=500)
+    
+@api_view(['GET'])
+def get_elementos(request):
+    try:
+        elemento=ElementoMetodo.objects.all()
+        elementos_list = []
+
+        for item in elemento:
+            elementos_dict = {
+                'id': item.id,
+                'nombre': item.nombre,
+                'gramos': item.gramos,
+                'miligramos': item.miligramos,
+            }
+            elementos_list.append(elementos_dict)
+
+        return JsonResponse({'elementos': elementos_list}, safe=False)
+    except Exception as e:
+        logger.error("Error fetching elemento: %s", e)
+        return JsonResponse({'message': 'Error al obtener el elemento'}, status=500)
+
+@api_view(['GET'])
+def get_method(request):
+    try:
+        method = MetodoAnalisis.objects.select_related('cliente').prefetch_related('elementos').all()
+        method_list = []
+
+        for item in method:
+            elementos_list = []
+            for elemento in item.elementos.all():
+                elementos_list.append({
+                    'id': elemento.id,
+                    'nombre': elemento.nombre,
+                    'gramos': elemento.gramos,
+                    'miligramos': elemento.miligramos,
+                })
+
+            method_dict = {
+                'id': item.id,
+                'cliente': item.cliente.nombre,
+                'nombre': item.nombre,
+                'metodologia': item.metodologia,
+                'elementos': elementos_list,
+            }
+            method_list.append(method_dict)
+
+        return JsonResponse({'metodo': method_list}, safe=False)
+    except Exception as e:
+        logger.error("Error fetching elemento: %s", e)
+        return JsonResponse({'message': 'Error al obtener el metodo'}, status=500)
+
+
+
+

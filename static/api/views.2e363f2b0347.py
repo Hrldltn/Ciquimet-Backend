@@ -96,13 +96,14 @@ def register_user(request):
                 message = f"Usuario creado correctamente: {first_name}"
                 return JsonResponse({'message': message, 'tipo': 'success', 'is_new_user': is_new_user})
             except ValidationError  as e:
-                message = f"Error al crear usuario: {str(e)}"
-                return JsonResponse({'message': message, 'tipo': 'error'})
+                errors = {}
+                for field, field_errors in form.errors.items():
+                    errors[field] = list(field_errors)
+                return JsonResponse({'tipo': 'error', 'message': 'Error al crear usuario', 'errors': errors})
         else:
-            errors = []
+            errors = {}
             for field, field_errors in form.errors.items():
-                for error in field_errors:
-                    errors.append(f": {error}")
+                errors[field] = list(field_errors)
             return JsonResponse({'tipo': 'error', 'message': 'Error al crear usuario', 'errors': errors})
     else:
         return JsonResponse({'tipo': 'error', 'message': 'Método no permitido. Utiliza el método POST.'})

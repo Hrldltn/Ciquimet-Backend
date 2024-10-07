@@ -1,27 +1,36 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.forms import ValidationError
 from django.utils.translation import gettext as _
 
 # Modelo para almacenar los usuarios
 class User(AbstractUser):
+    class Role(models.TextChoices):
+            SUPERVISOR = 'Supervisor', _('Supervisor')
+            ADMINISTRADOR = 'Administrador', _('Administrador')
+            QUIMICO = 'Quimico', _('Químico')
+    
+    class Turno(models.TextChoices):
+        DIA = 'Dia', _('Dia')
+        NOCHE = 'Noche', _('Noche')
+            
     username = models.EmailField(_('Correo'), unique=True, null=False, blank=False)
     rut = models.CharField(max_length=200, unique=True, null=False, blank=False)
     token = models.CharField(max_length=200, null=True, blank=True)  # Único campo opcional
-    is_administrador = models.BooleanField('Administrador', default=False)
-    is_supervisor = models.BooleanField('Supervisor', default=False)
-    is_quimico = models.BooleanField('Químico', default=False)
-    is_new_user = models.CharField(max_length=200, null=True, blank=True)
+    rolname = models.CharField(max_length=200, choices=Role.choices)
+    turno = models.CharField(max_length=200, choices=Turno.choices)
     date_joined = models.DateTimeField(_('Fecha de ingreso'), auto_now_add=True)
     
-    def __str__(self):
+    def _str_(self):
         name = self.first_name + ' ' + self.last_name
         return name
-
+    
 # Modelo para almacenar los clientes y proyectos
 class Proyecto(models.Model):
     nombre = models.CharField(max_length=100, null=False, blank=False)
     cliente = models.ForeignKey('Cliente', on_delete=models.CASCADE, null=False, blank=False)
     fecha_emision = models.DateField(null=False, blank=False)
+    
     
     def __str__(self):
         return self.cliente.nombre
@@ -149,6 +158,123 @@ class Resultado(models.Model):
     fecha_emision = models.DateField(verbose_name="Fecha de Emisión", null=False, blank=False)
 
 
+
+def validate_length(value):
+    if len(str(value)) != 9:
+        raise ValidationError('El número debe tener exactamente 9 dígitos.')
+
+
+class ODT(models.Model):
+    class T_MUESTRA(models.TextChoices):
+        SONDAJE = 'Sondaje', _('Sondaje')
+        SUBTERRANEA = 'Subterranea', _('Subterranea')
+        TRONADURA = 'Tronadura', _('Tronadura')
+
+    class PrioridadChoice(models.TextChoices):
+        ALTA = 'Alta', _('Alta')
+        MEDIA = 'Media', _('Media')
+        BAJA = 'Baja', _('Baja')
+
+    Fec_Recep = models.DateField()
+    Fec_Finalizacion = models.DateField()
+    id = models.CharField(_("Número de OT"), max_length=200, unique=True, primary_key=True)
+    Prefijo = models.PositiveIntegerField(_("Muestra inicial"), blank=True, null=True)
+    Cliente = models.ForeignKey('Cliente', on_delete=models.CASCADE, null=False, blank=False)
+    Proyecto = models.ForeignKey('Proyecto', on_delete=models.CASCADE, null=False, blank=False)
+    Responsable = models.CharField(_("Responsable envío"), max_length=200, blank=True, null=True)
+    Prioridad = models.CharField(_("Prioridad"), max_length=200, choices=PrioridadChoice.choices, blank=True)
+    TipoMuestra = models.CharField(_("Tipo de Muestra"), max_length=200, choices=T_MUESTRA.choices, blank=True)
+    Referencia = models.PositiveIntegerField(_("Batch"), blank=True, null=True)
+    Comentarios = models.CharField(max_length=255, blank=True)
+    Cant_Muestra = models.PositiveIntegerField(_("Cantidad de Muestras"), blank=True, null=True)
+
+    def save(self, *args, **kwargs):
+        # Solo generar un nuevo ID si la instancia no tiene un ID asignado (es un nuevo registro)
+        if self._state.adding and not self.id:
+            last_odt = ODT.objects.order_by('-id').first()
+            if last_odt:
+                try:
+                    last_number = int(last_odt.id[3:])
+                    new_number = last_number + 1
+                except ValueError:
+                    new_number = 1
+            else:
+                new_number = 1
+            self.id = f'WSS{new_number:06d}'
+        
+        super().save(*args, **kwargs)
+    
+class MuestraMasificada(models.Model):
+    odt = models.ForeignKey(ODT, on_delete=models.CASCADE, related_name='masificaciones')
+    Prefijo = models.CharField(max_length=200, unique=True, primary_key=True)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    tipoMuestra = models.CharField(max_length=200 ,default='M')
+
+    def __str__(self):
+        return f'Muestra {self.Prefijo} para ODT {self.odt.Nro_OT}'
+    
+
+
+class ElementoMetodo(models.Model):
+    nombre = models.CharField(max_length=200)
+    gramos = models.FloatField()
+    miligramos = models.FloatField()
+
+    def __str__(self):
+        return f"{self.nombre} ({self.gramos}g / {self.miligramos}ml)"
+
+class MetodoAnalisis(models.Model):
+    cliente = models.ForeignKey('Cliente', on_delete=models.CASCADE, related_name="metodos_analisis")
+    nombre = models.CharField(max_length=200)
+    metodologia = models.TextField()
+    elementos = models.ManyToManyField(ElementoMetodo, related_name="metodos_analisis")
+
+    class Meta:
+        unique_together = ('cliente', 'nombre')
+    
+    def __str__(self):
+        return f"Metodo {self.nombre}"
+
+
+class Analisis(models.Model):
+    id = models.AutoField(primary_key=True)
+    Analisis_metodo = models.CharField(_("Método de análisis"), max_length=200)
+    Nro_Analisis = models.CharField(_("Código de análisis"), max_length=200, unique=True, null=True)
+    descripcion = models.CharField(max_length=255)
+    Formula = models.CharField(max_length=255)
+    Elementos = models.ManyToManyField('Elementos', verbose_name=_("Elementos"), blank=True)  # Relación con Elementos
+    updated_at = models.DateTimeField(auto_now=True)  # Fecha de última modificación
+    enabled = models.BooleanField(_("Activo"), default=True)
+
+    def __str__(self):
+        return self.Analisis_metodo
+
+
+class Elementos(models.Model):
+    id = models.AutoField(primary_key=True)
+    nombre = models.CharField(_("Nombre"), max_length=200)
+    tipo = models.CharField(max_length=200)
+    simbolo = models.CharField(max_length=5, blank=True, null=True)
+    numero_atomico = models.IntegerField(blank=True, null=True) 
+    masa_atomica = models.FloatField(blank=True, null=True)
+    enabled = models.BooleanField(_("Activo"), default=True)
+    descripcion = models.TextField(max_length=255, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)  # Fecha de última modificación
+
+    def __str__(self):
+        return self.nombre
+
+class OT(models.Model):
+    id = models.AutoField(primary_key=True)
+    id_muestra = models.CharField(_("ID Muestra"), max_length=50, unique=True)
+    peso_muestra = models.FloatField(_("Peso Muestra"))
+    volumen = models.FloatField(_("Volumen"))
+    dilucion = models.FloatField(_("Dilución"))
+    odt = models.ForeignKey(ODT, on_delete=models.CASCADE, related_name="ots")
+    updated_at = models.DateTimeField(auto_now=True)  # Fecha de última modificación
+
+    def __str__(self):
+        return self.id_muestra
 
 # import uuid
 # from django.contrib.auth.models import AbstractUser

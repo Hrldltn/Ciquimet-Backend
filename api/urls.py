@@ -27,4 +27,15 @@ urlpatterns = [
     path('registerCuS4FeS4MoS4/', views.register_CuS4FeS4MoS4, name='register_CuS4FeS4MoS4'),
     path('Multi/', views.Multi, name='multi'),
     path('registerMulti/', views.register_Multi, name='register_Multi'),
+    
+    # ODT
+    path('registerODT/', views.register_ODT, name='registerODT'),
+    path('ODT/', views.get_ODT, name='get_ODT'),
+    path('ODTDetails/<str:id>/', views.get_ODTDetails, name='get_ODTDetails'),
+   
+   # TRABAJO
+    path('registerElement/', views.register_ElementoMetodo, name='registerElement'),
+    path('element/', views.get_elementos, name='get_ElementoMetodo'),
+    path('registerMethod/', views.register_metodo, name='registerMethod'),
+    path('method/', views.get_method, name='method'),
 ]
